@@ -1,0 +1,87 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build app (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MinisPulse.xcodeproj \
+            -scheme MinisPulse \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_BITCODE=NO \
+            build | xcpretty || \
+          xcodebuild \
+            -project MinisPulse.xcodeproj \
+            -scheme MinisPulse \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package IPA
+        run: |
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          echo "App: $APP_PATH"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry MinisPulse-unsigned.ipa Payload
+          ls -lh MinisPulse-unsigned.ipa
+          unzip -l MinisPulse-unsigned.ipa | head -20
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MinisPulse-unsigned-ipa
+          path: MinisPulse-unsigned.ipa
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          SIZE=$(du -h MinisPulse-unsigned.ipa | cut -f1)
+          {
+            echo "## ✅ Build succeeded"
+            echo ""
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| IPA size | $SIZE |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Xcode | $(xcodebuild -version | head -1) |"
+            echo ""
+            echo "Download the artifact **MinisPulse-unsigned-ipa** above, then sign it with AltStore / SideStore / Sideloadly."
+          } >> $GITHUB_STEP_SUMMARY
