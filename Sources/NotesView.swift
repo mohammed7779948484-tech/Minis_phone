@@ -183,7 +183,7 @@ struct NoteEditor: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String = ""
-    @State private var body: String = ""
+    @State private var text: String = ""
 
     var body: some View {
         NavigationStack {
@@ -197,7 +197,7 @@ struct NoteEditor: View {
                         .padding(14)
                         .background(Theme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                    TextEditor(text: $body)
+                    TextEditor(text: $text)
                         .font(.system(size: 15))
                         .foregroundStyle(Theme.text)
                         .scrollContentBackground(.hidden)
@@ -218,21 +218,21 @@ struct NoteEditor: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(title, body)
+                        onSave(title, text)
                         Haptics.success()
                         dismiss()
                     }
                     .fontWeight(.bold)
                     .foregroundStyle(Theme.accent)
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty &&
-                              body.trimmingCharacters(in: .whitespaces).isEmpty)
+                              text.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
         .onAppear {
             if let n = note {
                 title = n.title
-                body = n.body
+                text = n.body
             }
         }
     }
